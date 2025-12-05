@@ -3,19 +3,20 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"net/url"
 	"os"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/smithy-go"
 
 	"github.com/xitongsys/parquet-go-source/local"
-	"github.com/xitongsys/parquet-go-source/s3"
+	parquetS3 "github.com/xitongsys/parquet-go-source/s3v2"
 	"github.com/xitongsys/parquet-go/reader"
 	"github.com/xitongsys/parquet-go/source"
 	"github.com/xitongsys/parquet-go/tool/parquet-tools/schematool"
@@ -61,10 +62,19 @@ func main() {
 	case "s3":
 		// determine S3 bucket's region
 		ctx := context.Background()
-		sess := session.Must(session.NewSession())
-		region, err := s3manager.GetBucketRegion(ctx, sess, uri.Host, "us-east-1")
+		cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion("us-east-1"))
 		if err != nil {
-			if aerr, ok := err.(awserr.Error); ok && aerr.Code() == "NotFound" {
+			fmt.Fprintf(os.Stderr, "unable to load AWS config: %s", err.Error())
+			os.Exit(1)
+		}
+
+		s3Client := s3.NewFromConfig(cfg)
+		bucketLocation, err := s3Client.GetBucketLocation(ctx, &s3.GetBucketLocationInput{
+			Bucket: aws.String(uri.Host),
+		})
+		if err != nil {
+			var apiErr smithy.APIError
+			if errors.As(err, &apiErr) && apiErr.ErrorCode() == "NotFound" {
 				fmt.Fprintf(os.Stderr, "unable to find bucket %s's region not found", uri.Host)
 			} else {
 				fmt.Fprintf(os.Stderr, "AWS error: %s", err.Error())
@@ -72,7 +82,20 @@ func main() {
 			os.Exit(1)
 		}
 
-		fr, err = s3.NewS3FileReader(ctx, uri.Host, strings.TrimLeft(uri.Path, "/"), &aws.Config{Region: aws.String(region)})
+		region := "us-east-1"
+		if bucketLocation.LocationConstraint != "" {
+			region = string(bucketLocation.LocationConstraint)
+		}
+
+		// create a new config with the bucket's region
+		regionalCfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "unable to load AWS config for region %s: %s", region, err.Error())
+			os.Exit(1)
+		}
+
+		regionalS3Client := s3.NewFromConfig(regionalCfg)
+		fr, err = parquetS3.NewS3FileReaderWithClient(ctx, regionalS3Client, uri.Host, strings.TrimLeft(uri.Path, "/"))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to open S3 object [%s]: %s\n", *fileName, err.Error())
 			os.Exit(1)

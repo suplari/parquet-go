@@ -460,8 +460,7 @@ func TestE2ESequentialValid(t *testing.T) {
 	err = w.WriteStop()
 	assert.Nil(t, err)
 
-	parquetFile, err := buffer.NewBufferFile(buf.Bytes())
-	assert.Nil(t, err)
+	parquetFile := buffer.NewBufferFileFromBytes(buf.Bytes())
 
 	pr, err := reader.NewParquetReader(parquetFile, nil, 1)
 	assert.Nil(t, err)
@@ -517,8 +516,7 @@ func TestE2EConcurrentValid(t *testing.T) {
 	err = w.WriteStop()
 	assert.Nil(t, err)
 
-	parquetFile, err := buffer.NewBufferFile(buf.Bytes())
-	assert.Nil(t, err)
+	parquetFile := buffer.NewBufferFileFromBytes(buf.Bytes())
 
 	pr, err := reader.NewParquetReader(parquetFile, nil, 1)
 	assert.Nil(t, err)
@@ -574,8 +572,7 @@ func TestE2ENullabilityValid(t *testing.T) {
 	err = w.WriteStop()
 	assert.Nil(t, err)
 
-	parquetFile, err := buffer.NewBufferFile(buf.Bytes())
-	assert.Nil(t, err)
+	parquetFile := buffer.NewBufferFileFromBytes(buf.Bytes())
 
 	pr, err := reader.NewParquetReader(parquetFile, nil, 1)
 	assert.Nil(t, err)
@@ -589,13 +586,13 @@ func TestE2ENullabilityValid(t *testing.T) {
 		actualTable = append(actualTable, rowToSliceOfValues(row))
 	}
 	expectedTable := [][]interface{}{
-		{-1, nil, -21, nil, 1, nil, 21, nil, 1.1, nil, 1, nil, "A", nil, true,
+		{-1, nil, -21, nil, 1, nil, 21, nil, float32(1.1), nil, 1, nil, "A", nil, true,
 			nil, 1, nil, 1},
 
 		{nil, -11, nil, -31, nil, 11, nil, 31, nil, 10.1, nil, 1, nil, "a",
 			nil, 1, nil, 1, nil},
 
-		{-2, nil, -22, nil, 2, nil, 22, nil, 1.2, nil, 2, nil, "B", nil, false,
+		{-2, nil, -22, nil, 2, nil, 22, nil, float32(1.2), nil, 2, nil, "B", nil, false,
 			nil, 2, nil, 2},
 
 		{nil, -12, nil, -32, nil, 12, nil, 32, nil, 10.2, nil, 2, nil, "b",

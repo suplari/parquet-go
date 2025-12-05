@@ -304,7 +304,7 @@ func NewSchemaElementFromTagMap(info *Tag) (*parquet.SchemaElement, error) {
 		schema.Type = &t
 
 	} else {
-		return nil, fmt.Errorf("type " + info.Type + ": " + err.Error())
+		return nil, fmt.Errorf("type %s: %s", info.Type, err.Error())
 	}
 
 	if ct, err := parquet.ConvertedTypeFromString(info.ConvertedType); err == nil {
@@ -419,7 +419,7 @@ func NewLogicalTypeFromFieldsMap(mp map[string]string) (*parquet.LogicalType, er
 			logicalType.UUID = parquet.NewUUIDType()
 
 		default:
-			return nil, fmt.Errorf("unknow logicaltype: " + val)
+			return nil, fmt.Errorf("unknow logicaltype: %v", val)
 		}
 
 		return logicalType, nil
